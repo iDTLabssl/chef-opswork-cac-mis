@@ -1,0 +1,95 @@
+proxy_cache_path /tmp/nginx levels=1:2 keys_zone=my_zone:10m inactive=360m;
+proxy_cache_key "$scheme$request_method$host$request_uri";
+
+# Choose between www and non-www, listen on the *wrong* one and redirect to
+# the right one -- http://wiki.nginx.org/Pitfalls#Server_Name
+#
+server {
+  listen [::]:80;
+  listen 80;
+
+  # listen on both hosts
+  server_name www.<%=node[:openerp][:servername]%>;
+
+  # and redirect to non www host (declared below)
+  return 301 https://<%=node[:openerp][:servername]%>$request_uri;
+}
+
+server {
+  listen [::]:80;
+  listen 80;
+
+  # listen on both hosts
+  server_name <%=node[:opsworks][:instance][:ip]%> <%=node[:openerp][:servername]%>;
+
+  # and redirect to the https host (declared below)
+  # avoiding http://www -> https://www -> https:// chain.
+  return 301 https://$host$request_uri$is_args$args;
+}
+
+server {
+
+  # listen [::]:443 ssl spdy accept_filter=dataready;  # for FreeBSD
+  # listen 443 ssl spdy accept_filter=dataready;  # for FreeBSD
+  # listen [::]:443 ssl spdy deferred;  # for Linux
+  # listen 443 ssl spdy deferred;  # for Linux
+  listen [::]:443 ssl spdy;
+  listen 443 ssl spdy;
+  client_max_body_size 20M;
+  # The host name to respond to
+  server_name <%=node[:openerp][:servername]%>;
+
+  if ($host = 'www.<%=node[:openerp][:servername]%>' ) {
+          rewrite  ^/(.*)$  https://<%=node[:openerp][:servername]%>/$1  permanent;
+}
+proxy_connect_timeout       300;
+proxy_send_timeout          300;
+proxy_read_timeout          300;
+send_timeout                300;
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+   location / {
+     
+     include proxy_params;
+     proxy_pass               http://127.0.0.1:8069;
+   }
+
+   location /longpolling {
+      include proxy_params;
+      proxy_pass              http://127.0.0.1:8072;
+   }
+
+  include h5bp/directive-only/ssl.conf;
+
+
+  #Specify a charset
+  charset utf-8;
+
+  # Custom 404 page
+  error_page 500 502 503 504 /500.html;
+location = /500.html {
+    root <%=node[:openerp][:static_http_document_root]%>404/;
+}
+
+location ~* /web/database/manager {
+        auth_basic "Restricted Area Login";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+include proxy_params;
+proxy_pass               http://127.0.0.1:8069;
+
+    }
+
+  # Include the basic h5bp config set
+  include h5bp/basic.conf;
+
+  # Include the spdy h5bp config set
+  include h5bp/directive-only/spdy.conf;
+
+  # include stappling
+  include h5bp/directive-only/ssl-stapling.conf;
+
+  # Include the spdy h5bp config set
+  include h5bp/directive-only/cache-file-descriptors.conf;
+}
