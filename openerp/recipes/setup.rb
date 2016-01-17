@@ -94,8 +94,8 @@ directory node[:openerp][:data_dir] do
     not_if { ::File.exists?(node[:openerp][:data_dir]) }
   end
 
-bash "update data dir permission" do
+bash "update_data_dir_permission" do
     code <<-EOH
-    chmod 777 -#{node[:openerp][:data_dir]}
+    chmod 777 #{node[:openerp][:data_dir]}
     EOH
   end
