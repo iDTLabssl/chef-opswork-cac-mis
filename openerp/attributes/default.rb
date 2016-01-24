@@ -55,7 +55,7 @@ default[:openerp][:nginx_authuser] = 'user'
 default[:openerp][:nginx_authpass] = 'pass'
 
 default[:openerp][:data_dir] = '/mnt/data'
-default[:openerp][:db_filter] = '%h'
+default[:openerp][:db_filter] = '^mis$'
 default[:openerp][:debug_mode] = 'False'
 default[:openerp][:email_from] = 'no-reply@iss.sl'
 
